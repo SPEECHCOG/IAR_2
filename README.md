@@ -2,7 +2,7 @@
 
 **NOTE: The links are not yet correct!**
 
-This repository contains code for the [iterative annotation refinement (IAR) 2.0 algorithm](www.herewillbethepaperlink.com) using simulated data, which consists of a binary waveform classification task with three simulated annotators. The code has been implemented using PyTorch. For a thorough description of the PFML algorithm, see [the publication](www.herewillbethepaperlink.com).
+This repository contains code for refining inconsistent training labels for time-series data using the [iterative annotation refinement (IAR) 2.0 algorithm](www.herewillbethepaperlink.com). The present example uses simulated data, which consists of a binary waveform classification task with three simulated annotators. The code has been implemented using PyTorch. For a thorough description of the PFML algorithm, see [the publication](www.herewillbethepaperlink.com).
 
 **The present IAR 2.0 implementation has been used in the following publication:**
 [E. Vaaras, M. Airaksinen, and O. Räsänen, "IAR 2.0: An algorithm for refining inconsistent annotations for time-series data using discriminative classifiers" _(publication venue here)_](www.herewillbethepaperlink.com).
