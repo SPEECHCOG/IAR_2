@@ -1,13 +1,11 @@
 # A PyTorch implementation of the IAR 2.0 algorithm
 
-**NOTE: The links are not yet correct!**
-
-This repository contains code for refining inconsistent training labels for time-series data using the [iterative annotation refinement (IAR) 2.0 algorithm](www.herewillbethepaperlink.com). The present example uses simulated data, which consists of a binary waveform classification task with three simulated annotators. The code has been implemented using PyTorch. For a thorough description of the PFML algorithm, see [the publication](www.herewillbethepaperlink.com).
+This repository contains code for refining inconsistent training labels for time-series data using the [iterative annotation refinement (IAR) 2.0 algorithm](https://ieeexplore.ieee.org/document/10854471). The present example uses simulated data, which consists of a binary waveform classification task with three simulated annotators. The code has been implemented using PyTorch. For a thorough description of the IAR 2.0 algorithm, see [the publication](https://ieeexplore.ieee.org/document/10854471).
 
 **The present IAR 2.0 implementation has been used in the following publication:**
-[E. Vaaras, M. Airaksinen, and O. Räsänen, "IAR 2.0: An algorithm for refining inconsistent annotations for time-series data using discriminative classifiers" _(publication venue here)_](www.herewillbethepaperlink.com).
+[E. Vaaras, M. Airaksinen, and O. Räsänen, "IAR 2.0: An algorithm for refining inconsistent annotations for time-series data using discriminative classifiers" _(publication venue here)_](https://ieeexplore.ieee.org/document/10854471).
 
-If you use the present code or its derivatives, please cite the [repository URL](https://github.com/SPEECHCOG/IAR_2) and/or the [aforementioned publication](www.herewillbethepaperlink.com).
+If you use the present code or its derivatives, please cite the [repository URL](https://github.com/SPEECHCOG/IAR_2) and/or the [aforementioned publication](https://ieeexplore.ieee.org/document/10854471).
 
 ## Requirements
 Any `PyTorch` version newer than version 1.9.0 should work fine. You can find out how to install PyTorch here: https://pytorch.org/get-started/locally/. You also need to have `NumPy`, `scikit-learn`, `Librosa`, and `SciPy` installed.
