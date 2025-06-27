@@ -140,7 +140,7 @@ lr_scheduler_params = {'mode': 'max',
 dataset_name = 'simulated_1d_dataset_with_annotators'
 
 # The number of simulated annotators (options: 1, 2, or 3)
-num_annotators = 3
+num_annotators = 2
 
 # The ratio in which we split our data into training and test sets. For example, a ratio
 # of 0.8 will result in 80% of our training data being in the training set and 20% in the test set.
@@ -161,7 +161,7 @@ include_noise = True
 
 # The probability of the sinusoid class. The probability of the square wave class will then be
 # 1 - sinusoid_class_probability.
-sinusoid_class_probability = 0.5
+sinusoid_class_probability = 0.1
 
 # The noise scale factor for the np.random.normal() function
 noise_scale = 0.05
@@ -177,13 +177,10 @@ co_occurring_class_max_relative_amplitude = 0.99
 min_amplitude = 0.2
 
 # The annotation error tendency for annotator 1 (low = 0.1, medium = 0.5, high = 0.8)
-annotator_1_error_tendency = 0.1
+annotator_1_error_tendency = 0.5
 
 # The annotation error tendency for annotator 2 (low = 0.1, medium = 0.5, high = 0.8)
-annotator_2_error_tendency = 0.8
-
-# The annotation error tendency for annotator 3 (low = 0.1, medium = 0.5, high = 0.8)
-annotator_3_error_tendency = 0.8
+annotator_2_error_tendency = 0.5
 
 # The biased class label for annotator 1 (either None, 0 = sinusoid, or 1 = square wave) and the amount of bias towards
 # the biased class label (0.0 = no bias, 0.1 = low bias, 0.2 = medium bias, and 0.3 = high bias).
@@ -193,23 +190,16 @@ annotator_1_bias = 0.0
 # The biased class label for annotator 2 (either None, 0 = sinusoid, or 1 = square wave) and the amount of bias towards
 # the biased class label (0.0 = no bias, 0.1 = low bias, 0.2 = medium bias, and 0.3 = high bias).
 annotator_2_biased_label = 1
-annotator_2_bias = 0.2
-
-# The biased class label for annotator 3 (either None, 0 = sinusoid, or 1 = square wave) and the amount of bias towards
-# the biased class label (0.0 = no bias, 0.1 = low bias, 0.2 = medium bias, and 0.3 = high bias).
-annotator_3_biased_label = None
-annotator_3_bias = 0.0
+annotator_2_bias = 0.1
 
 # We can also change how the annotator errors evolve over time for the simulated annotators, e.g. the annotation error
 # might increase gradually if the annotator gets tired. Options: None, 'linear', or 'sawtooth'
 annotator_1_error_function = None
 annotator_2_error_function = None
-annotator_3_error_function = None
 
 # The parameters for our error functions
 annotator_1_error_function_params = None
 annotator_2_error_function_params = None
-annotator_3_error_function_params = None
 
 # If we have already created a simulated dataset, select whether we want to load that one (True) or if we want to
 # create a new one and overwrite the old one (False)
@@ -235,19 +225,14 @@ params_train_dataset = {'num_annotators': num_annotators,
                         'min_amplitude': min_amplitude,
                         'annotator_1_error_tendency': annotator_1_error_tendency,
                         'annotator_2_error_tendency': annotator_2_error_tendency,
-                        'annotator_3_error_tendency': annotator_3_error_tendency,
                         'annotator_1_biased_label': annotator_1_biased_label,
                         'annotator_1_bias': annotator_1_bias,
                         'annotator_2_biased_label': annotator_2_biased_label,
                         'annotator_2_bias': annotator_2_bias,
-                        'annotator_3_biased_label': annotator_3_biased_label,
-                        'annotator_3_bias': annotator_3_bias,
                         'annotator_1_error_function': annotator_1_error_function,
                         'annotator_2_error_function': annotator_2_error_function,
-                        'annotator_3_error_function': annotator_3_error_function,
                         'annotator_1_error_function_params': annotator_1_error_function_params,
                         'annotator_2_error_function_params': annotator_2_error_function_params,
-                        'annotator_3_error_function_params': annotator_3_error_function_params,
                         'file_save_dir': result_dir,
                         'load_from_file': load_from_file,
                         'file_name': f'simulation_dataset_exp_{experiment_number}.p'}
@@ -265,19 +250,14 @@ params_validation_dataset = {'num_annotators': num_annotators,
                              'min_amplitude': min_amplitude,
                              'annotator_1_error_tendency': annotator_1_error_tendency,
                              'annotator_2_error_tendency': annotator_2_error_tendency,
-                             'annotator_3_error_tendency': annotator_3_error_tendency,
                              'annotator_1_biased_label': annotator_1_biased_label,
                              'annotator_1_bias': annotator_1_bias,
                              'annotator_2_biased_label': annotator_2_biased_label,
                              'annotator_2_bias': annotator_2_bias,
-                             'annotator_3_biased_label': annotator_3_biased_label,
-                             'annotator_3_bias': annotator_3_bias,
                              'annotator_1_error_function': annotator_1_error_function,
                              'annotator_2_error_function': annotator_2_error_function,
-                             'annotator_3_error_function': annotator_3_error_function,
                              'annotator_1_error_function_params': annotator_1_error_function_params,
                              'annotator_2_error_function_params': annotator_2_error_function_params,
-                             'annotator_3_error_function_params': annotator_3_error_function_params,
                              'file_save_dir': result_dir,
                              'load_from_file': load_from_file,
                              'file_name': f'simulation_dataset_exp_{experiment_number}.p'}
@@ -295,19 +275,14 @@ params_test_dataset = {'num_annotators': num_annotators,
                        'min_amplitude': min_amplitude,
                        'annotator_1_error_tendency': annotator_1_error_tendency,
                        'annotator_2_error_tendency': annotator_2_error_tendency,
-                       'annotator_3_error_tendency': annotator_3_error_tendency,
                        'annotator_1_biased_label': annotator_1_biased_label,
                        'annotator_1_bias': annotator_1_bias,
                        'annotator_2_biased_label': annotator_2_biased_label,
                        'annotator_2_bias': annotator_2_bias,
-                       'annotator_3_biased_label': annotator_3_biased_label,
-                       'annotator_3_bias': annotator_3_bias,
                        'annotator_1_error_function': annotator_1_error_function,
                        'annotator_2_error_function': annotator_2_error_function,
-                       'annotator_3_error_function': annotator_3_error_function,
                        'annotator_1_error_function_params': annotator_1_error_function_params,
                        'annotator_2_error_function_params': annotator_2_error_function_params,
-                       'annotator_3_error_function_params': annotator_3_error_function_params,
                        'file_save_dir': result_dir,
                        'load_from_file': load_from_file,
                        'file_name': f'simulation_dataset_exp_{experiment_number}.p'}

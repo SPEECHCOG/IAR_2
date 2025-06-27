@@ -12,7 +12,7 @@ from torch.utils.data import Dataset
 import os
 import sys
 import pickle
-import scipy
+from scipy import signal as scipysignal
 
 
 
@@ -20,8 +20,8 @@ import scipy
 class simulated_1d_dataset_with_annotators(Dataset):
     """
     A simulated dataset of 1D time-domain data, containing two classes: sinusoids and square waves. For
-    each simulated sample, there are three simulated annotators, each with its unique annotation error
-    tendency and annotation bias.
+    each simulated sample, there is either one, two, or three simulated annotators, each with its unique
+    annotation error tendency and annotation bias.
     
     Annotator error tendency should be in the range [0,1].
       Annotator_error_tendency = 0.0 --> very low chance of making errors
@@ -33,10 +33,13 @@ class simulated_1d_dataset_with_annotators(Dataset):
       Annotator_bias = 1.0 --> the annotator is fully biased towards the other class label, and
                                never gives the other label
     
+    A detailed description of all the input variables can be found in the configuration files (e.g.
+    conf_run_iar_2_simulated_data.py).
+    
     """
 
-    def __init__(self, train_val_test = 'train', train_test_ratio = 0.8, train_val_ratio = 0.75, random_seed = 42,
-                 file_save_dir = './simulation_datasets', load_from_file = True, file_name = None,
+    def __init__(self, train_val_test = 'train', num_annotators = 3, train_test_ratio = 0.8, train_val_ratio = 0.75,
+                 random_seed = 42, file_save_dir = './simulation_datasets', load_from_file = True, file_name = None,
                  num_randomly_generated_frames = 100000, frame_window_length = 120, sinusoid_class_probability = 0.1,
                  include_noise = True, noise_scale = 0.05, class_co_occurrence_probability = 0.9,
                  co_occurring_class_max_relative_amplitude = 0.99, min_amplitude = 0.2,
@@ -48,14 +51,29 @@ class simulated_1d_dataset_with_annotators(Dataset):
                  annotator_2_error_function_params = None, annotator_3_error_function_params = None):
         super().__init__()
         
+        if num_annotators not in [1, 2, 3]:
+            sys.exit(f'num_annotators = {num_annotators} not implemented!')
+        
         if file_name is None:
-            filename = (f'simulated_1d_dataset_{num_randomly_generated_frames}_{frame_window_length}_'
-                        f'{sinusoid_class_probability}_{include_noise}_{noise_scale}_{class_co_occurrence_probability}_'
-                        f'{co_occurring_class_max_relative_amplitude}_{min_amplitude}_{annotator_1_error_tendency}_'
-                        f'{annotator_2_error_tendency}_{annotator_3_error_tendency}_{annotator_1_biased_label}_'
-                        f'{annotator_1_bias}_{annotator_2_biased_label}_{annotator_2_bias}_'
-                        f'{annotator_3_biased_label}_{annotator_3_bias}_{annotator_1_error_function}_'
-                        f'{annotator_2_error_function}_{annotator_3_error_function}').replace('.', '') + '.p'
+            if num_annotators == 1:
+                filename = (f'simulated_1d_dataset_{num_randomly_generated_frames}_{frame_window_length}_'
+                            f'{sinusoid_class_probability}_{include_noise}_{noise_scale}_{class_co_occurrence_probability}_'
+                            f'{co_occurring_class_max_relative_amplitude}_{min_amplitude}_{annotator_1_error_tendency}_'
+                            f'{annotator_1_biased_label}_{annotator_1_bias}_{annotator_1_error_function}').replace('.', '') + '.p'
+            elif num_annotators == 2:
+                filename = (f'simulated_1d_dataset_{num_randomly_generated_frames}_{frame_window_length}_'
+                            f'{sinusoid_class_probability}_{include_noise}_{noise_scale}_{class_co_occurrence_probability}_'
+                            f'{co_occurring_class_max_relative_amplitude}_{min_amplitude}_{annotator_1_error_tendency}_'
+                            f'{annotator_2_error_tendency}_{annotator_1_biased_label}_{annotator_1_bias}_{annotator_2_biased_label}_'
+                            f'{annotator_2_bias}_{annotator_1_error_function}_{annotator_2_error_function}').replace('.', '') + '.p'
+            else:
+                filename = (f'simulated_1d_dataset_{num_randomly_generated_frames}_{frame_window_length}_'
+                            f'{sinusoid_class_probability}_{include_noise}_{noise_scale}_{class_co_occurrence_probability}_'
+                            f'{co_occurring_class_max_relative_amplitude}_{min_amplitude}_{annotator_1_error_tendency}_'
+                            f'{annotator_2_error_tendency}_{annotator_3_error_tendency}_{annotator_1_biased_label}_'
+                            f'{annotator_1_bias}_{annotator_2_biased_label}_{annotator_2_bias}_'
+                            f'{annotator_3_biased_label}_{annotator_3_bias}_{annotator_1_error_function}_'
+                            f'{annotator_2_error_function}_{annotator_3_error_function}').replace('.', '') + '.p'
         else:
             filename = file_name
         
@@ -75,13 +93,28 @@ class simulated_1d_dataset_with_annotators(Dataset):
             data_dict = {}
             
             annotator_error_probs = []
-            annotator_error_values = [annotator_1_error_tendency, annotator_2_error_tendency, annotator_3_error_tendency]
-            annotator_biased_labels = [annotator_1_biased_label, annotator_2_biased_label, annotator_3_biased_label]
-            annotator_biases = [annotator_1_bias, annotator_2_bias, annotator_3_bias]
-            annotator_error_functions = [annotator_1_error_function, annotator_2_error_function,
-                                         annotator_3_error_function]
-            annotator_error_function_params = [annotator_1_error_function_params, annotator_2_error_function_params,
-                                               annotator_3_error_function_params]
+            
+            if num_annotators == 1:
+                annotator_error_values = [annotator_1_error_tendency]
+                annotator_biased_labels = [annotator_1_biased_label]
+                annotator_biases = [annotator_1_bias]
+                annotator_error_functions = [annotator_1_error_function]
+                annotator_error_function_params = [annotator_1_error_function_params]
+            elif num_annotators == 2:
+                annotator_error_values = [annotator_1_error_tendency, annotator_2_error_tendency]
+                annotator_biased_labels = [annotator_1_biased_label, annotator_2_biased_label]
+                annotator_biases = [annotator_1_bias, annotator_2_bias]
+                annotator_error_functions = [annotator_1_error_function, annotator_2_error_function]
+                annotator_error_function_params = [annotator_1_error_function_params, annotator_2_error_function_params]
+            else:
+                annotator_error_values = [annotator_1_error_tendency, annotator_2_error_tendency, annotator_3_error_tendency]
+                annotator_biased_labels = [annotator_1_biased_label, annotator_2_biased_label, annotator_3_biased_label]
+                annotator_biases = [annotator_1_bias, annotator_2_bias, annotator_3_bias]
+                annotator_error_functions = [annotator_1_error_function, annotator_2_error_function,
+                                             annotator_3_error_function]
+                annotator_error_function_params = [annotator_1_error_function_params, annotator_2_error_function_params,
+                                                   annotator_3_error_function_params]
+            
             for i in range(len(annotator_error_functions)):
                 if annotator_error_functions[i] is not None:
                     annotator_error_probs.append(self.compute_annotator_error_probs(annotator_error_functions[i],
@@ -122,9 +155,9 @@ class simulated_1d_dataset_with_annotators(Dataset):
                     ground_truth_label = 0
                     Y_ground_truth.append(ground_truth_label)
                     if overlap:
-                        signal = (signal + overlap_amplitude * scipy.signal.square(overlap_frequency * x + overlap_phase)) / overlap_scaler
+                        signal = (signal + overlap_amplitude * scipysignal.square(overlap_frequency * x + overlap_phase)) / overlap_scaler
                 else:
-                    signal = signal_amplitude * scipy.signal.square(signal_frequency * x + signal_phase)
+                    signal = signal_amplitude * scipysignal.square(signal_frequency * x + signal_phase)
                     ground_truth_label = 1
                     Y_ground_truth.append(ground_truth_label)
                     if overlap:
@@ -138,7 +171,10 @@ class simulated_1d_dataset_with_annotators(Dataset):
                     
                     annotator_label = self.compute_annotator_label(annotator_error_prob, amplitude_ratio, ground_truth_label,
                                                                    annotator_biased_labels[i], annotator_biases[i])
-                    Y_sample.append(annotator_label)
+                    if num_annotators != 1:
+                        Y_sample.append(annotator_label)
+                    else:
+                        Y_sample = annotator_label
                 
                 if include_noise:
                     signal = signal + np.random.normal(scale=noise_scale, size=len(x))
@@ -146,24 +182,30 @@ class simulated_1d_dataset_with_annotators(Dataset):
                 Data.append(signal)
                 Y_annotators.append(Y_sample)
             
-            # We compute the full agreement mask for validation loss computation (0 = full agreement, 1 = no full agreement)
             Y_annotators = np.array(Y_annotators)
-            full_agreement_mask = np.ones(len(Y_annotators))
-            for i in range(len(Y_annotators)):
-                if np.all(Y_annotators[i, :] == Y_annotators[i, 0]):
-                    full_agreement_mask[i] = 0
             
-            # We compute the one-hot labels and soft labels
+            # We compute the full agreement mask for validation loss computation (0 = full agreement, 1 = no full agreement)
+            if num_annotators != 1:
+                full_agreement_mask = np.ones(len(Y_annotators))
+                for i in range(len(Y_annotators)):
+                    if np.all(Y_annotators[i, :] == Y_annotators[i, 0]):
+                        full_agreement_mask[i] = 0
+            
+            # We compute the soft labels (note that in single-annotation cases there aren't any soft labels)
             Y_soft_labels = []
             for i in range(len(Y_annotators)):
-                class_1_prob = Y_annotators[i, :].mean()
+                if num_annotators != 1:
+                    class_1_prob = Y_annotators[i, :].mean()
+                else:
+                    class_1_prob = Y_annotators[i]
                 Y_soft_labels.append([1 - class_1_prob, class_1_prob])
             
             data_dict['X'] = np.array(Data)
             data_dict['Y_ground_truth'] = np.array(Y_ground_truth)
             data_dict['Y_annotators'] = Y_annotators
             data_dict['Y_soft_labels'] = np.array(Y_soft_labels)
-            data_dict['full_agreement_mask'] = full_agreement_mask
+            if num_annotators != 1:
+                data_dict['full_agreement_mask'] = full_agreement_mask
             
             with open(os.path.join(file_save_dir, filename), 'wb') as sv:
                 pickle.dump(data_dict, sv)
@@ -175,36 +217,45 @@ class simulated_1d_dataset_with_annotators(Dataset):
         test_data = {}
         np.random.seed(random_seed)
         mask_traintest_split = np.random.rand(len(data_dict['X'])) <= train_test_ratio
-        for name in ['X', 'Y_ground_truth', 'Y_annotators', 'Y_soft_labels', 'full_agreement_mask']:
+        if num_annotators != 1:
+            key_names = ['X', 'Y_ground_truth', 'Y_annotators', 'Y_soft_labels', 'full_agreement_mask']
+        else:
+            key_names = ['X', 'Y_ground_truth', 'Y_annotators', 'Y_soft_labels']
+        for name in key_names:
             trainval_data[name] = data_dict[name][mask_traintest_split]
             test_data[name] = data_dict[name][~mask_traintest_split]
         np.random.seed(2*random_seed)    # We use a different random seed for splitting trainval_files
         mask_trainval_split = np.random.rand(len(trainval_data['X'])) <= train_val_ratio
-        for name in ['X', 'Y_ground_truth', 'Y_annotators', 'Y_soft_labels', 'full_agreement_mask']:
+        for name in key_names:
             train_data[name] = trainval_data[name][mask_trainval_split]
             val_data[name] = trainval_data[name][~mask_trainval_split]
         
         del data_dict
         del trainval_data
         
+        self.num_annotators = num_annotators
+        
         if train_val_test == 'train':
             self.X = train_data['X']
             self.Y_ground_truth = train_data['Y_ground_truth']
             self.Y_annotators = train_data['Y_annotators']
             self.Y_soft_labels = train_data['Y_soft_labels']
-            self.full_agreement_mask = train_data['full_agreement_mask']
+            if num_annotators != 1:
+                self.full_agreement_mask = train_data['full_agreement_mask']
         elif train_val_test == 'validation':
             self.X = val_data['X']
             self.Y_ground_truth = val_data['Y_ground_truth']
             self.Y_annotators = val_data['Y_annotators']
             self.Y_soft_labels = val_data['Y_soft_labels']
-            self.full_agreement_mask = val_data['full_agreement_mask']
+            if num_annotators != 1:
+                self.full_agreement_mask = val_data['full_agreement_mask']
         else:
             self.X = test_data['X']
             self.Y_ground_truth = test_data['Y_ground_truth']
             self.Y_annotators = test_data['Y_annotators']
             self.Y_soft_labels = test_data['Y_soft_labels']
-            self.full_agreement_mask = test_data['full_agreement_mask']
+            if num_annotators != 1:
+                self.full_agreement_mask = test_data['full_agreement_mask']
     
     
     
@@ -255,9 +306,9 @@ class simulated_1d_dataset_with_annotators(Dataset):
             x = np.linspace(0, 1, num_frames)
             num_sawtooths = error_function_params['num_sawtooths']
             sawtooth_max_value = error_function_params['sawtooth_max_value']
-            annotator_error_probs = sawtooth_max_value * 0.5 * (scipy.signal.sawtooth(2 * np.pi * num_sawtooths * x) + 1)
+            annotator_error_probs = sawtooth_max_value * 0.5 * (scipysignal.sawtooth(2 * np.pi * num_sawtooths * x) + 1)
         else:
-            sys.exit(f'{error_function} is a wrong value for the error function name!')
+            sys.exit(f'{error_function} error function not implemented!')
         
         return annotator_error_probs
         
@@ -267,4 +318,8 @@ class simulated_1d_dataset_with_annotators(Dataset):
 
     def __getitem__(self, index):
         
-        return self.X[index], self.Y_ground_truth[index], self.Y_annotators[index], self.Y_soft_labels[index], self.full_agreement_mask[index]
+        if self.num_annotators != 1:
+            return self.X[index], self.Y_ground_truth[index], self.Y_annotators[index], self.Y_soft_labels[index], self.full_agreement_mask[index]
+        else:
+            return self.X[index], self.Y_ground_truth[index], self.Y_annotators[index], self.Y_soft_labels[index]
+    

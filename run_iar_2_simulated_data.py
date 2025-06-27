@@ -5,9 +5,10 @@ Author: Einari Vaaras, einari.vaaras@tuni.fi, Tampere University
 Speech and Cognition Research Group, https://webpages.tuni.fi/specog/index.html
 
 Code for running the IAR 2.0 algorithm for simulated data (binary waveform classification
-task with three simulated annotators). After running the IAR 2.0 algorithm, this code also
-tests the classification performance of models trained using the original (discretized)
-soft labels and the labels produced by the IAR 2.0 algorithm.
+task with either one, two, or three simulated annotators). After running the IAR 2.0 algorithm,
+this code also tests the classification performance of models trained using the original
+(discretized) soft labels and the labels produced by the IAR 2.0 algorithm. For single-annotation
+cases, the code uses the original labels instead of soft labels (as soft labels are not available).
 
 """
 
@@ -40,18 +41,18 @@ def discretize_categories(Y):
 
 # Read the configuration file
 if len(sys.argv) > 2:
-    sys.exit('\nUsage: \n1) python train_iar_2_model_simulated_data.py \nOR \n2) python train_iar_2_model_simulated_data.py <configuration_file>')
+    sys.exit('\nUsage: \n1) python run_iar_2_simulated_data.py \nOR \n2) python run_iar_2_simulated_data.py <configuration_file>')
 if len(sys.argv) == 2:
     conf = SourceFileLoader('', sys.argv[1]).load_module()
     conf_file_name = sys.argv[1]
 else:
     try:
-        import conf_train_iar_2_model_simulated_data as conf
-        conf_file_name = 'conf_train_iar_2_model_simulated_data.py'
+        import conf_run_iar_2_simulated_data as conf
+        conf_file_name = 'conf_run_iar_2_simulated_data.py'
     except ModuleNotFoundError:
-        sys.exit('\nUsage: \n1) python train_iar_2_model_simulated_data.py \nOR \n2) python train_iar_2_model_simulated_data.py <configuration_file>\n\n' \
-                 'By using the first option, you need to have a configuration file named "conf_train_iar_2_model_simulated_data.py" in the same ' \
-                 'directory as "train_iar_2_model_simulated_data.py"')
+        sys.exit('\nUsage: \n1) python run_iar_2_simulated_data.py \nOR \n2) python run_iar_2_simulated_data.py <configuration_file>\n\n' \
+                 'By using the first option, you need to have a configuration file named "conf_run_iar_2_simulated_data.py" in the same ' \
+                 'directory as "run_iar_2_simulated_data.py"')
 
 # Import our models
 encoder_model = getattr(__import__('iar_2_model', fromlist=[conf.encoder_model]), conf.encoder_model)
@@ -95,15 +96,39 @@ if __name__ == "__main__":
     with open(f'{conf.result_dir}/{conf.name_of_log_textfile}', 'a') as f:
         f.write(f'Process on {device}\n\n')
     
+    # We make modifications to erroneous configuration settings for single-annotation cases
+    if conf.num_annotators == 1:
+        if conf.allow_model_to_disagree_with_annotators == False:
+            conf.allow_model_to_disagree_with_annotators = True
+            with open(f'{conf.result_dir}/{conf.name_of_log_textfile}', 'a') as f:
+                f.write('"allow_model_to_disagree_with_annotators" set to True, False is not valid for single-annotation cases!\n')
+        if conf.validation_loss_criterion == 'full_agreement':
+            conf.validation_loss_criterion = 'original_labels'
+            with open(f'{conf.result_dir}/{conf.name_of_log_textfile}', 'a') as f:
+                f.write('"validation_loss_criterion" set to "original_labels", "full_agreement" is not valid for single-annotation cases!\n')
+    
+    if conf.num_annotators == 1:
+        # The weights for the model predictions and human annotations when computing new soft labels
+        model_weight = conf.model_prediction_weight
+        human_weight = 1 - conf.model_prediction_weight
+    
+    if conf.num_annotators != 1:
+        test_labels_list = ['full agreement labels', 'original labels', 'ground truth labels']
+    else:
+        test_labels_list = ['original labels', 'ground truth labels']
+    
     # We create our dict where the training results are stored
     simulation_results = {}
     for label_index in np.arange(conf.max_iar_iterations + 1):
         if label_index == 0:
-            label_name = 'original (discretized) soft labels'
+            if conf.num_annotators != 1:
+                label_name = 'original (discretized) soft labels'
+            else:
+                label_name = 'original labels'
         else:
-            label_name = f'IAR labels (iteration {label_index})'
+            label_name = f'IAR 2.0 labels (iteration {label_index})'
         simulation_results[label_name] = {}
-        for test_labels in ['full agreement labels', 'original labels', 'ground truth labels']:
+        for test_labels in test_labels_list:
             simulation_results[label_name][test_labels] = []
     
     dataset_file_save_dir = conf.params_train_dataset['file_save_dir']
@@ -121,7 +146,7 @@ if __name__ == "__main__":
         prior_prob = np.array([conf.sinusoid_class_probability, 1 - conf.sinusoid_class_probability])
         class_weights = from_numpy(1 / prior_prob).to(device).float()
         
-        # The soft labels for every IAR iteration are stored in a dict
+        # The soft labels for every IAR 2.0 iteration are stored in a dict
         y_iterations = {}
         iar_iteration = 0
         
@@ -139,13 +164,13 @@ if __name__ == "__main__":
             pickle.dump(y_discretized, sv)
         
         with open(f'{conf.result_dir}/{conf.name_of_log_textfile}', 'a') as f:
-            f.write('################## Training IAR model, simulation experiments ##################\n\n')
+            f.write('################## Running IAR 2.0 ##################\n\n')
         
         iar_iteration += 1
         iar_training_loop = True
         while iar_training_loop:
             with open(f'{conf.result_dir}/{conf.name_of_log_textfile}', 'a') as f:
-                f.write(f'Training model, IAR iteration {iar_iteration}\n\n')
+                f.write(f'Training model, IAR 2.0 iteration {iar_iteration}\n\n')
             
             # Initialize our models, pass the models to the available device
             Encoder_model = encoder_model(**conf.encoder_model_params).to(device)
@@ -179,7 +204,7 @@ if __name__ == "__main__":
             best_model_timeseries = None
             
             if conf.continue_model_training_in_every_iteration and iar_iteration != 1:
-                # Load our model weights of our previous IAR iteration
+                # Load the model weights from the trained model of our previous IAR 2.0 iteration
                 try:
                     with open(f'{conf.result_dir}/{conf.name_of_log_textfile}', 'a') as f:
                         f.write('Loading models from file...\n')
@@ -197,7 +222,7 @@ if __name__ == "__main__":
                         f.write('An error occurred while loading the files! Training with random model weights...\n\n')
             
             elif conf.use_pretrained_model:
-                # Load our model weights of our pre-trained model
+                # Load the model weights of a pre-trained model
                 try:
                     with open(f'{conf.result_dir}/{conf.name_of_log_textfile}', 'a') as f:
                         f.write('Loading pre-trained models from file...\n')
@@ -272,7 +297,10 @@ if __name__ == "__main__":
                 for train_data in train_data_loader:
                     
                     # Get the minibatches
-                    X, _, _, Y, _ = [element.to(device) for element in train_data]
+                    if conf.num_annotators != 1:
+                        X, _, _, Y, _ = [element.to(device) for element in train_data]
+                    else:
+                        X, _, _, Y = [element.to(device) for element in train_data]
                     
                     # Zero the gradient of the optimizer
                     optimizer.zero_grad()
@@ -314,7 +342,10 @@ if __name__ == "__main__":
                     # Loop through every minibatch of our validation data and perform a similar process
                     # as for the training data
                     for validation_data in validation_data_loader:
-                        X, _, _, Y, full_agreement_mask = [element.to(device) for element in validation_data]
+                        if conf.num_annotators != 1:
+                            X, _, _, Y, full_agreement_mask = [element.to(device) for element in validation_data]
+                        else:
+                            X, _, _, Y = [element.to(device) for element in validation_data]
                         Embedding = Encoder_model(X.float())
                         Y_pred = Timeseries_model(Embedding)
                         y_output = Y.max(dim=1)[1]
@@ -412,7 +443,7 @@ if __name__ == "__main__":
                     f.write(f'\nBest epoch {best_validation_epoch} with validation accuracy {highest_validation_accuracy}\n\n')
             
             with open(f'{conf.result_dir}/{conf.name_of_log_textfile}', 'a') as f:
-                f.write(f'\nComputing new soft labels (IAR iteration {iar_iteration})... ')
+                f.write(f'\nComputing new soft labels (IAR 2.0 iteration {iar_iteration})... ')
             
             
             # We create a "combined" training and validation set in order to compute new IAR labels
@@ -430,7 +461,8 @@ if __name__ == "__main__":
             trainval_set.Y_ground_truth = np.concatenate((trainval_set.Y_ground_truth, validation_set.Y_ground_truth), axis=0)
             trainval_set.Y_annotators = np.concatenate((trainval_set.Y_annotators, validation_set.Y_annotators), axis=0)
             trainval_set.Y_soft_labels = y_soft_labels
-            trainval_set.full_agreement_mask = np.concatenate((trainval_set.full_agreement_mask, validation_set.full_agreement_mask), axis=0)
+            if conf.num_annotators != 1:
+                trainval_set.full_agreement_mask = np.concatenate((trainval_set.full_agreement_mask, validation_set.full_agreement_mask), axis=0)
             
             trainval_data_loader = DataLoader(trainval_set, **conf.params_trainval)
             
@@ -447,32 +479,45 @@ if __name__ == "__main__":
     
             with no_grad():
                 for trainval_data in trainval_data_loader:
-                    X, _, _, _, full_agreement_mask = [element.to(device) for element in trainval_data]
+                    if conf.num_annotators != 1:
+                        X, _, _, _, full_agreement_mask = [element.to(device) for element in trainval_data]
+                        full_agreement_masks.append(full_agreement_mask.detach().cpu().numpy())
+                    else:
+                        X, _, _, _ = [element.to(device) for element in trainval_data]
                     Embedding = Encoder_model(X.float())
                     Y_pred = Timeseries_model(Embedding)
                     smax = Softmax(dim=1)
                     Y_pred_smax_np = smax(Y_pred).detach().cpu().numpy()
                     model_output.append(Y_pred_smax_np)
-                    full_agreement_masks.append(full_agreement_mask.detach().cpu().numpy())
             
             model_output = np.vstack(model_output)
-            full_agreement_masks = np.hstack(full_agreement_masks) # 0 = full agreement, 1 = no full agreement
+            if conf.num_annotators != 1:
+                full_agreement_masks = np.hstack(full_agreement_masks) # 0 = full agreement, 1 = no full agreement
             
             y_new_soft_labels = np.zeros_like(y_soft_labels)
-            for i in range(len(y_soft_labels)):
-                if full_agreement_masks[i]:
-                    # We are allowed to modify the soft label
+            
+            if conf.num_annotators != 1:
+                for i in range(len(y_soft_labels)):
+                    if full_agreement_masks[i]:
+                        # We are allowed to modify the soft label
+                        if y_soft_labels[i].sum() == 0:
+                            y_new_soft_labels[i] = y_soft_labels[i]
+                        else:
+                            if conf.allow_model_to_disagree_with_annotators:
+                                new_soft_label = (y_soft_labels[i] + model_output[i]) / (y_soft_labels[i] + model_output[i]).sum()
+                            else:
+                                new_soft_label = (y_soft_labels[i] * model_output[i]) / (y_soft_labels[i] * model_output[i]).sum()
+                            y_new_soft_labels[i] = new_soft_label
+                    else:
+                        # We do not modify the soft label
+                        y_new_soft_labels[i] = y_soft_labels[i]
+            else:
+                for i in range(len(y_soft_labels)):
                     if y_soft_labels[i].sum() == 0:
                         y_new_soft_labels[i] = y_soft_labels[i]
                     else:
-                        if conf.allow_model_to_disagree_with_annotators:
-                            new_soft_label = (y_soft_labels[i] + model_output[i]) / (y_soft_labels[i] + model_output[i]).sum()
-                        else:
-                            new_soft_label = (y_soft_labels[i] * model_output[i]) / (y_soft_labels[i] * model_output[i]).sum()
+                        new_soft_label = (human_weight * y_soft_labels[i] + model_weight * model_output[i]) / (human_weight * y_soft_labels[i] + model_weight * model_output[i]).sum()
                         y_new_soft_labels[i] = new_soft_label
-                else:
-                    # We do not modify the soft label
-                    y_new_soft_labels[i] = y_soft_labels[i]
             
             y_iterations[iar_iteration] = y_new_soft_labels
             y_discretized = discretize_categories(y_iterations[iar_iteration])
@@ -486,7 +531,7 @@ if __name__ == "__main__":
             
             if iar_iteration > conf.max_iar_iterations - 1:
                 with open(f'{conf.result_dir}/{conf.name_of_log_textfile}', 'a') as f:
-                    f.write('\nMaximum number of IAR iterations reached, stopping IAR process... ')
+                    f.write('\nMaximum number of IAR 2.0 iterations reached, stopping IAR 2.0 process... ')
                 iar_training_loop = False
             iar_iteration += 1
         
@@ -534,9 +579,12 @@ if __name__ == "__main__":
         for label_index in np.arange(len(labels_list)):
             
             if label_index == 0:
-                label_name = 'original (discretized) soft labels'
+                if conf.num_annotators != 1:
+                    label_name = 'original (discretized) soft labels'
+                else:
+                    label_name = 'original labels'
             else:
-                label_name = f'IAR labels (iteration {label_index})'
+                label_name = f'IAR 2.0 labels (iteration {label_index})'
             
             with open(f'{conf.result_dir}/{conf.name_of_log_textfile}', 'a') as f:
                 f.write(f'\n\n########## Using {label_name} for training model (label setup {label_index + 1}/{len(labels_list)}) ##########\n\n')
@@ -601,7 +649,10 @@ if __name__ == "__main__":
                 Timeseries_model.train()
                 
                 for train_data in train_data_loader:
-                    X, _, _, Y, full_agreement_mask = [element.to(device) for element in train_data]
+                    if conf.num_annotators != 1:
+                        X, _, _, Y, _ = [element.to(device) for element in train_data]
+                    else:
+                        X, _, _, Y = [element.to(device) for element in train_data]
                     optimizer.zero_grad()
                     Embedding = Encoder_model(X.float())
                     Y_pred = Timeseries_model(Embedding)
@@ -621,7 +672,10 @@ if __name__ == "__main__":
         
                 with no_grad():
                     for validation_data in validation_data_loader:
-                        X, _, _, Y, _ = [element.to(device) for element in validation_data]
+                        if conf.num_annotators != 1:
+                            X, _, _, Y, _ = [element.to(device) for element in validation_data]
+                        else:
+                            X, _, _, Y = [element.to(device) for element in validation_data]
                         Embedding = Encoder_model(X.float())
                         Y_pred = Timeseries_model(Embedding)
                         y_output = Y.max(dim=1)[1]
@@ -702,7 +756,7 @@ if __name__ == "__main__":
             output_categories = 2
             
             # Test our model using different test labels
-            for test_labels in ['full agreement labels', 'original labels', 'ground truth labels']:
+            for test_labels in test_labels_list:
                 test_set = dataset(train_val_test='test', **conf.params_test_dataset)
                 if test_labels != 'ground truth labels':
                     test_set.Y_soft_labels = discretize_categories(test_set.Y_soft_labels)
@@ -722,9 +776,15 @@ if __name__ == "__main__":
                 with no_grad():
                     for test_data in test_data_loader:
                         if test_labels == 'ground truth labels':
-                            X, y_output, _, _, _ = [element.to(device) for element in validation_data]
+                            if conf.num_annotators != 1:
+                                X, y_output, _, _, _ = [element.to(device) for element in validation_data]
+                            else:
+                                X, y_output, _, _ = [element.to(device) for element in validation_data]
                         else:
-                            X, _, _, Y, full_agreement_mask = [element.to(device) for element in validation_data]
+                            if conf.num_annotators != 1:
+                                X, _, _, Y, full_agreement_mask = [element.to(device) for element in validation_data]
+                            else:
+                                X, _, _, Y = [element.to(device) for element in validation_data]
                             y_output = Y.max(dim=1)[1]
                         Embedding = Encoder_model(X.float())
                         Y_pred = Timeseries_model(Embedding)
@@ -780,10 +840,13 @@ if __name__ == "__main__":
     # We print the results
     for label_index in np.arange(conf.max_iar_iterations + 1):
         if label_index == 0:
-            label_name = 'original (discretized) soft labels'
+            if conf.num_annotators != 1:
+                label_name = 'original (discretized) soft labels'
+            else:
+                label_name = 'original labels'
         else:
-            label_name = f'IAR labels (iteration {label_index})'
-        for test_labels in ['full agreement labels', 'original labels', 'ground truth labels']:
+            label_name = f'IAR 2.0 labels (iteration {label_index})'
+        for test_labels in test_labels_list:
             result = np.array(simulation_results[label_name][test_labels]).mean()
     
             with open(f'{conf.result_dir}/{conf.name_of_log_textfile}', 'a') as f:
@@ -793,7 +856,7 @@ if __name__ == "__main__":
                 f.write('\n########################################################################################\n')
         
     with open(f'{conf.result_dir}/{conf.name_of_log_textfile}', 'a') as f:
-        f.write('All experiments completed!\n')
+        f.write('\n\nAll experiments completed!\n')
         
     
     
