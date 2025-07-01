@@ -197,7 +197,7 @@ class simulated_1d_dataset_with_annotators(Dataset):
                 if num_annotators != 1:
                     class_1_prob = Y_annotators[i, :].mean()
                 else:
-                    class_1_prob = Y_annotators[i]
+                    class_1_prob = float(Y_annotators[i])
                 Y_soft_labels.append([1 - class_1_prob, class_1_prob])
             
             data_dict['X'] = np.array(Data)
