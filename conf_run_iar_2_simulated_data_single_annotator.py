@@ -88,6 +88,16 @@ validation_loss_criterion = 'full_agreement'
 # Note that this hyperparameter only applies to single-annotation cases (num_annotators = 1).
 model_prediction_weight = 0.666666
 
+# This hyperparameter defines the threshold at which IAR 2.0 is allowed to modify the original soft labels. A value
+# of 1.0 means that IAR 2.0 is allowed to modify the labels of all samples in which there was incomplete agreement
+# among the annotators, whereas a value of e.g. 0.7 means that IAR 2.0 is only allowed to modify samples in which no
+# class had 70% or more of the total probability mass given by the annotators. This hyperparameter can take values
+# in the interval [0.0, 1.0], where a lower value means that IAR 2.0 is more conservative in terms of which samples
+# it is allowed to modify the labels of. The extreme value of 0.0 means that IAR 2.0 is not allowed to modify any
+# labels at all.
+# Note that this hyperparameter only affects cases where the number of annotators is more than one (num_annotators > 1).
+soft_label_modification_threshold = 1.0
+
 # The learning rate of our model training
 learning_rate = 1e-4
 
@@ -161,7 +171,7 @@ include_noise = True
 
 # The probability of the sinusoid class. The probability of the square wave class will then be
 # 1 - sinusoid_class_probability.
-sinusoid_class_probability = 0.1
+sinusoid_class_probability = 0.3
 
 # The noise scale factor for the np.random.normal() function
 noise_scale = 0.05
@@ -177,12 +187,12 @@ co_occurring_class_max_relative_amplitude = 0.99
 min_amplitude = 0.2
 
 # The annotation error tendency for annotator 1 (low = 0.1, medium = 0.5, high = 0.8)
-annotator_1_error_tendency = 0.8
+annotator_1_error_tendency = 0.5
 
 # The biased class label for annotator 1 (either None, 0 = sinusoid, or 1 = square wave) and the amount of bias towards
 # the biased class label (0.0 = no bias, 0.1 = low bias, 0.2 = medium bias, and 0.3 = high bias).
-annotator_1_biased_label = 0
-annotator_1_bias = 0.3
+annotator_1_biased_label = 1
+annotator_1_bias = 0.2
 
 # We can also change how the annotator errors evolve over time for the simulated annotators, e.g. the annotation error
 # might increase gradually if the annotator gets tired. Options: None, 'linear', or 'sawtooth'

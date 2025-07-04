@@ -96,7 +96,7 @@ if __name__ == "__main__":
     with open(f'{conf.result_dir}/{conf.name_of_log_textfile}', 'a') as f:
         f.write(f'Process on {device}\n\n')
     
-    # We make modifications to erroneous configuration settings for single-annotation cases
+    # We make modifications to erroneous configuration settings
     if conf.num_annotators == 1:
         if conf.allow_model_to_disagree_with_annotators == False:
             conf.allow_model_to_disagree_with_annotators = True
@@ -106,6 +106,11 @@ if __name__ == "__main__":
             conf.validation_loss_criterion = 'original_labels'
             with open(f'{conf.result_dir}/{conf.name_of_log_textfile}', 'a') as f:
                 f.write('"validation_loss_criterion" set to "original_labels", "full_agreement" is not valid for single-annotation cases!\n')
+    else:
+        if conf.soft_label_modification_threshold > 1.0:
+            conf.soft_label_modification_threshold = 1.0
+            with open(f'{conf.result_dir}/{conf.name_of_log_textfile}', 'a') as f:
+                f.write('"soft_label_modification_threshold" set to 1.0, since no class can have a soft label greater than 1.0!\n')
     
     if conf.num_annotators == 1:
         # The weights for the model predictions and human annotations when computing new soft labels
@@ -470,6 +475,9 @@ if __name__ == "__main__":
             model_output = []
             full_agreement_masks = []
             
+            if conf.soft_label_modification_threshold != 1.0:
+                annotator_labels = []
+            
             # Load the best version of the model
             Encoder_model.load_state_dict(best_model_encoder)
             Timeseries_model.load_state_dict(best_model_timeseries)
@@ -480,7 +488,11 @@ if __name__ == "__main__":
             with no_grad():
                 for trainval_data in trainval_data_loader:
                     if conf.num_annotators != 1:
-                        X, _, _, _, full_agreement_mask = [element.to(device) for element in trainval_data]
+                        if conf.soft_label_modification_threshold == 1.0:
+                            X, _, _, _, full_agreement_mask = [element.to(device) for element in trainval_data]
+                        else:
+                            X, _, Y_annotators, _, full_agreement_mask = [element.to(device) for element in trainval_data]
+                            annotator_labels.append(Y_annotators.detach().cpu().numpy())
                         full_agreement_masks.append(full_agreement_mask.detach().cpu().numpy())
                     else:
                         X, _, _, _ = [element.to(device) for element in trainval_data]
@@ -493,6 +505,22 @@ if __name__ == "__main__":
             model_output = np.vstack(model_output)
             if conf.num_annotators != 1:
                 full_agreement_masks = np.hstack(full_agreement_masks) # 0 = full agreement, 1 = no full agreement
+                
+                if conf.soft_label_modification_threshold != 1.0:
+                    # We don't allow soft label values above a given threshold to be modified during the IAR 2.0
+                    # process, so we update full_agreement_masks accordingly.
+                    annotator_labels = np.concatenate(annotator_labels, axis=0)
+                    class_probabilities = np.stack((1 - annotator_labels.mean(axis=1), annotator_labels.mean(axis=1)), axis=1)
+                    class_max_probabilities = class_probabilities.max(axis=1)
+                    for i in range(len(class_max_probabilities)):
+                        if class_max_probabilities[i] < conf.soft_label_modification_threshold:
+                            # We allow for the label to be modified
+                            full_agreement_masks[i] = 1.0
+                        else:
+                            # We are not allowed to modify the given label
+                            full_agreement_masks[i] = 0.0
+                    
+                    
             
             y_new_soft_labels = np.zeros_like(y_soft_labels)
             
@@ -512,6 +540,7 @@ if __name__ == "__main__":
                         # We do not modify the soft label
                         y_new_soft_labels[i] = y_soft_labels[i]
             else:
+                # In single-annotation cases, we are allowed to modify the label of all samples
                 for i in range(len(y_soft_labels)):
                     if y_soft_labels[i].sum() == 0:
                         y_new_soft_labels[i] = y_soft_labels[i]
